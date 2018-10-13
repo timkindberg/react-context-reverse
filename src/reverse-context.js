@@ -1,84 +1,50 @@
-import { equals } from "expect/build/jasmine_utils";
+import React from "react";
 
-export class WhenMock {
-  constructor(fn, debug) {
-    this.fn = fn;
-    this.callMocks = [];
-    this.debug = debug;
-    this.log = (...args) => this.debug && console.log(...args);
+/**
+ * Similar to React.createContext() but instead of the ancestor passing data to it's descendant,
+ * the descendant passes data to a single ancestor.
+ *
+ * @param defaultValue The default value for the reverse context
+ * @returns {{ReverseConsumer: ReverseConsumer, ReverseProvider: ReverseProvider}}
+ */
+export function createReverseContext(defaultValue) {
+  const NativeContext = React.createContext();
 
-    const mockReturnValue = (matchers, assertCall, once = false) => val => {
-      this.callMocks.push({ matchers, val, assertCall, once });
+  class ReverseProvider extends React.Component {
+    setParentState = () => {};
+    componentDidMount() {
+      this.setParentState(this.props.value);
+    }
+    componentDidUpdate() {
+      this.setParentState(this.props.value);
+    }
 
-      this.fn.mockImplementation((...args) => {
-        this.log("mocked impl", args);
-
-        for (let i = 0; i < this.callMocks.length; i++) {
-          const { matchers, val, assertCall } = this.callMocks[i];
-          const match = matchers.reduce((match, matcher, i) => {
-            this.log(`matcher check, match: ${match}, index: ${i}`);
-
-            // Propagate failure to the end
-            if (!match) {
-              return false;
-            }
-
-            const arg = args[i];
-
-            this.log(`   matcher: ${matcher}`);
-            this.log(`   arg: ${arg}`);
-
-            // Assert the match for better messaging during a failure
-            if (assertCall) {
-              expect(arg).toEqual(matcher);
-            }
-
-            return equals(arg, matcher);
-          }, true);
-
-          if (match) {
-            let removedOneItem = false;
-            this.callMocks = this.callMocks.filter(
-              mock =>
-                !(
-                  mock.once &&
-                  equals(mock.matchers, matchers) &&
-                  !removedOneItem & (removedOneItem = true)
-                )
-            );
-            return val;
-          }
-        }
-      });
-    };
-
-    const mockResolvedValueOnce = (matchers, assertCall) => val =>
-      mockReturnValueOnce(matchers, assertCall)(Promise.resolve(val));
-
-    const mockResolvedValue = (matchers, assertCall) => val =>
-      mockReturnValue(matchers, assertCall)(Promise.resolve(val));
-
-    const mockReturnValueOnce = (matchers, assertCall) => val =>
-      mockReturnValue(matchers, assertCall, true)(val);
-
-    this.calledWith = (...matchers) => ({
-      mockReturnValue: mockReturnValue(matchers, false),
-      mockReturnValueOnce: mockReturnValueOnce(matchers, false),
-      mockResolvedValue: mockResolvedValue(matchers, false),
-      mockResolvedValueOnce: mockResolvedValueOnce(matchers, false)
-    });
-
-    this.expectCalledWith = (...matchers) => ({
-      mockReturnValue: mockReturnValue(matchers, true),
-      mockReturnValueOnce: mockReturnValueOnce(matchers, true),
-      mockResolvedValue: mockResolvedValue(matchers, true),
-      mockResolvedValueOnce: mockResolvedValueOnce(matchers, true)
-    });
+    render() {
+      return (
+        <NativeContext.Consumer>
+          {setState => {
+            if (setState) this.setParentState = setState;
+            return this.props.children;
+          }}
+        </NativeContext.Consumer>
+      );
+    }
   }
-}
 
-export const reverseContext = (fn, { debug = false } = {}) => {
-  if (fn.__whenMock__ instanceof WhenMock) return fn.__whenMock__;
-  fn.__whenMock__ = new WhenMock(fn, debug);
-  return fn.__whenMock__;
-};
+  class ReverseConsumer extends React.Component {
+    state = {};
+    setParentState = value => this.setState({ value });
+    render() {
+      return (
+        <NativeContext.Provider value={this.setParentState}>
+          {this.props.children(this.state.value)}
+        </NativeContext.Provider>
+      );
+    }
+  }
+
+  return {
+    ReverseConsumer,
+    ReverseProvider
+  };
+}

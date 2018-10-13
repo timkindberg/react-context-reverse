@@ -1,134 +1,71 @@
-# jest-when
+# react-context-reverse
 
 ```
-npm i --save-dev jest-when
+npm i --save-dev react-context-reverse
 ```
 
-A sugary way to mock return values for specific arguments only.
+Similar to React.createContext() but instead of the ancestor passing data to it's descendant, the descendant passes data to a single ancestor.
 
-#### Basic usage:
+#### Usage:
 
-```javascript
-import { when } from "jest-when";
+Use the `createReverseContext` function just like you would use the `React.createContext` function.
 
-const fn = jest.fn();
-when(fn)
-  .calledWith(1)
-  .mockReturnValue("yay!");
+The difference is it returns a Context object with a:
 
-const result = fn(1);
-expect(result).toEqual("yay!");
-```
+- `<Context.ReverseProvider>`: Component used in a child/descendant component to provide a value to the context.
+- `<Context.ReverseConsumer>`: Component used in the parent/ancestor component to consume the provided value from the context.
 
-#### Supports multiple args:
+**Note:** I made the names `ReverseProvider` and `ReverseConsumer` to avoid confusion with a regular `Provider` and `Consumer`.
 
-```javascript
-import { when } from "jest-when";
+#### Example:
 
-const fn = jest.fn();
-when(fn)
-  .calledWith(1, true, "foo")
-  .mockReturnValue("yay!");
+In this example, we are going to add a disabled class to a `<label>` if it's nested `<input>` is disabled.
 
-const result = fn(1, true, "foo");
-expect(result).toEqual("yay!");
-```
+```jsx
+////////////////
+/* Example.js */
+////////////////
 
-#### Supports training for single calls
+import { Label } from "./Label";
+import { Checkbox } from "./Checkbox";
 
-```javascript
-import { when } from "jest-when";
+export const Example = () => (
+  <Label>
+    <Checkbox disabled /> // Note: the child has some disabled state to share
+    Check Me
+  </Label>
+);
 
-const fn = jest.fn();
-when(fn)
-  .calledWith(1, true, "foo")
-  .mockReturnValueOnce("yay!");
-when(fn)
-  .calledWith(1, true, "foo")
-  .mockReturnValueOnce("nay!");
+//////////////
+/* Label.js */
+//////////////
 
-expect(fn(1, true, "foo")).toEqual("yay!");
-expect(fn(1, true, "foo")).toEqual("nay!");
-expect(fn(1, true, "foo")).toBeUndefined();
-```
+import { createReverseContext } from 'react-context-reverse'
 
-#### Supports Promises
+// We start by creating a reverse context to consume
+// the disabled context of the child checkbox
+export const DisabledContext = createReverseContext(false);
 
-```javascript
-import { when } from "jest-when";
+// In the parent we use the ReverseConsumer, it provides
+// the value of the context via a child function
+export const Label = props => (
+  <DisabledContext.ReverseConsumer>
+    {disabled => (
+      <label {...props} className={cx("Label", disabled && "is-disabled")} />
+    )}
+  </DisabledContext.ReverseConsumer>
+);
 
-const fn = jest.fn();
-when(fn)
-  .calledWith(1, true, "foo")
-  .mockResolvedValue("yay!");
-when(fn)
-  .calledWith(2, false, "bar")
-  .mockResolvedValueOnce("nay!");
+//////////////
+/* Input.js */
+//////////////
+import { DisabledContext } from "./Label";
 
-expect(await fn(1, true, "foo")).toEqual("yay!");
-expect(await fn(1, true, "foo")).toEqual("yay!");
-
-expect(await fn(2, false, "bar")).toEqual("nay!");
-expect(await fn(2, false, "bar")).toBeUndefined();
-```
-
-#### Supports jest matchers:
-
-```javascript
-import { when } from "jest-when";
-
-const fn = jest.fn();
-when(fn)
-  .calledWith(
-    expect.anything(),
-    expect.any(Number),
-    expect.arrayContaining(false)
-  )
-  .mockReturnValue("yay!");
-
-const result = fn("whatever", 100, [true, false]);
-expect(result).toEqual("yay!");
-```
-
-#### Supports compound declarations:
-
-```javascript
-import { when } from "jest-when";
-
-const fn = jest.fn();
-when(fn)
-  .calledWith(1)
-  .mockReturnValue("no");
-when(fn)
-  .calledWith(2)
-  .mockReturnValue("way?");
-when(fn)
-  .calledWith(3)
-  .mockReturnValue("yes");
-when(fn)
-  .calledWith(4)
-  .mockReturnValue("way!");
-
-expect(fn(1)).toEqual("no");
-expect(fn(2)).toEqual("way?");
-expect(fn(3)).toEqual("yes");
-expect(fn(4)).toEqual("way!");
-expect(fn(5)).toEqual(undefined);
-```
-
-#### Assert the args:
-
-Use `expectCalledWith` instead to run an assertion that the `fn` was called with the provided args. Your test will fail if the jest mock function is ever called without those exact `expectCalledWith` params.
-
-Disclaimer: This won't really work very well with compound declarations, because one of them will always fail, and throw an assertion error.
-
-```javascript
-import { when } from "jest-when";
-
-const fn = jest.fn();
-when(fn)
-  .expectCalledWith(1)
-  .mockReturnValue("x");
-
-fn(2); // Will throw a helpful jest assertion error with args diff
+// In the child we use the ReverseProvider, we provide
+// the value to the context
+export const Checkbox = props => (
+  <DisabledContext.ReverseProvider value={props.disabled}>
+    <input {...props} type="checkbox" className="Checkbox" />
+  </DisabledContext.ReverseProvider>
+);
 ```
