@@ -1,6 +1,6 @@
 {
   "name": "react-context-reverse",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "Normal React context flows down. Reverse context flows up, from a descendant to a single ancestor.",
   "main": "dist/reverse-context.js",
   "files": [
@@ -9,7 +9,7 @@
   "author": "Tim Kindberg",
   "repository": {
     "type": "git",
-    "url": "https://github.com/timkindberg/react-reverse-context.git"
+    "url": "https://github.com/timkindberg/react-context-reverse.git"
   },
   "license": "MIT",
   "private": false,
